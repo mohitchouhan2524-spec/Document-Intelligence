@@ -1,0 +1,68 @@
+app:
+  name: "Hybrid-RAG Document Intelligence"
+  version: "1.0.0"
+  log_level: "INFO"
+  log_dir: "logs/"
+
+data:
+  raw_dir: "data/raw/"
+  processed_dir: "data/processed/"
+  indexes_dir: "data/indexes/"
+  supported_formats: ["pdf", "docx", "txt", "html", "csv", "xlsx"]
+
+ingestion:
+  chunk_size: 512          # tokens per chunk
+  chunk_overlap: 64        # overlap between chunks
+  min_chunk_size: 50       # discard chunks smaller than this
+  ocr_enabled: true        # for scanned PDFs
+
+embedding:
+  provider: "local"        # "local" | "openai"
+  local_model: "BAAI/bge-large-en-v1.5"
+  openai_model: "text-embedding-3-large"
+  dimension: 1024          # bge-large: 1024, text-embedding-3-large: 3072
+  batch_size: 64
+
+qdrant:
+  host: "localhost"
+  port: 6333
+  collection_name: "doc_intelligence"
+  distance: "Cosine"
+  on_disk_payload: true
+  top_k: 10
+
+elasticsearch:
+  host: "localhost"
+  port: 9200
+  index_name: "doc_intelligence_bm25"
+  analyzer: "english"
+  top_k: 10
+
+sqlite:
+  db_path: "data/indexes/metadata.db"
+
+classifier:
+  mode: "rules_first"      # "rules_first" | "model_only" | "hybrid"
+  model_path: "data/indexes/classifier_model.pkl"
+  confidence_threshold: 0.75
+  fallback: "hybrid"       # route when confidence < threshold
+
+retrieval:
+  reranker_model: "BAAI/bge-reranker-large"
+  reranker_top_k: 5        # final docs after reranking
+  fusion_method: "rrf"     # "rrf" | "linear" | "learned"
+  rrf_k: 60
+
+llm:
+  provider: "groq"    # "groq" | "openai"
+  model: "llama-3.3-70b-versatile"
+  max_tokens: 2048
+  temperature: 0.1
+  system_prompt: |
+    You are a Document Intelligence assistant. Answer questions accurately
+    based solely on the provided context. If the context is insufficient,
+    say so clearly. Never hallucinate facts not present in the context.
+
+evaluation:
+  metrics: ["faithfulness", "answer_relevancy", "context_precision", "rouge_l"]
+  sample_size: 100

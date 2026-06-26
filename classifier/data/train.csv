@@ -1,0 +1,116 @@
+query,label
+summarise the key findings in the annual report,vector
+what are the main risk factors described in this filing,vector
+explain the product liability clause in plain English,vector
+analyse the competitive landscape section,vector
+what does the indemnification clause mean,vector
+describe the data retention policy,vector
+what is the overall tone of this contract,vector
+how does the pricing model work according to this doc,vector
+what are the key obligations of the vendor,vector
+give me an overview of the compliance requirements,vector
+why was the merger blocked according to the report,vector
+what are the implications of the new data privacy law,vector
+explain the arbitration process described here,vector
+what technical requirements are specified for the API,vector
+how does the warranty coverage work,vector
+what are the termination conditions in this agreement,vector
+compare the SLA terms across all service tiers,vector
+what security controls are mandated by this policy,vector
+summarize what changed in version 3 of the agreement,vector
+what are the penalty clauses for late delivery,vector
+identify the scope of work described in this SOW,vector
+what payment terms does this contract specify,vector
+what does the NDA cover in terms of information types,vector
+how is intellectual property ownership handled here,vector
+break down the revenue sharing structure,vector
+what does this memo say about the restructuring plan,vector
+what are the key deliverables mentioned in this brief,vector
+explain the escalation procedure described in policy,vector
+what standards does this document comply with,vector
+what is the audit scope outlined in this engagement,vector
+analyse the force majeure clause applicability,vector
+what are the confidentiality obligations on both sides,vector
+how should disputes be resolved under this agreement,vector
+what triggers the change control process,vector
+describe the onboarding process in the service manual,vector
+what does this whitepaper say about decentralisation,vector
+what is the stated purpose of this regulatory document,vector
+explain the liability cap and exclusions in this deal,vector
+what are the notice requirements for termination,vector
+how are renewal terms structured in this subscription,vector
+what is the total amount on invoice INV-2041,vectorless
+show me PO-8812 delivery date,vectorless
+get the status of contract CT-0034,vectorless
+what is the value of order ORD-9921,vectorless
+fetch document ID DOC-1193 expiry date,vectorless
+when was ticket TKT-5502 created,vectorless
+what is the price of SKU AB-4401,vectorless
+how many documents were uploaded on 2024-03-15,vectorless
+list all contracts expiring in Q1 2025,vectorless
+what is the count of active vendor agreements,vectorless
+find record by ref number REF-0072,vectorless
+what is the exact due date for invoice 4421,vectorless
+retrieve the document status for case CS-2210,vectorless
+how many invoices are overdue as of today,vectorless
+what is the total spend for vendor ACME Corp this year,vectorless
+look up project code PR-3309 budget,vectorless
+get approval date for PO-1102,vectorless
+what is the contract value for agreement AGR-0441,vectorless
+how many pages does document DOC-0091 have,vectorless
+find all documents uploaded by user ID USR-0042,vectorless
+find all documents mentioning force majeure,vectorless
+search for contracts containing the word indemnification,vectorless
+find all files that mention GDPR,vectorless
+which documents contain the phrase data breach,vectorless
+search for every record with the term arbitration,vectorless
+find all contracts mentioning termination for cause,vectorless
+which files include the keyword confidentiality,vectorless
+search documents containing both NDA and exclusivity,vectorless
+find all records that reference ISO 27001,vectorless
+list documents that mention penalty clause,vectorless
+which agreements contain the phrase limitation of liability,vectorless
+find every document that uses the term sub-contractor,vectorless
+search for files mentioning the word escrow,vectorless
+find all documents that reference SOC 2 compliance,vectorless
+which contracts mention intellectual property assignment,vectorless
+who approved the Q3 budget document,vectorless
+who authored the data governance policy,vectorless
+who signed the vendor agreement with TechCorp,vectorless
+who is the owner of project Alpha documentation,vectorless
+which manager is responsible for this SLA,vectorless
+who created the compliance checklist last updated in May,vectorless
+who submitted the incident report IR-0042,vectorless
+what is the relationship between Acme Corp and vendor X,vectorless
+which documents are linked to the Smith contract,vectorless
+who is associated with the legal review of this doc,vectorless
+find all entities mentioned alongside John Doe,vectorless
+which organisations are connected to this tender,vectorless
+what documents are related to the merger agreement,vectorless
+who wrote the technical specification for module B,vectorless
+which teams are mentioned in the escalation policy,vectorless
+how has our refund policy changed since 2022,hybrid
+compare the SLA terms in the 2021 vs 2024 contracts,hybrid
+show me how vendor pricing has evolved over the last 3 years,hybrid
+what changed in the privacy policy between v1 and v2,hybrid
+how have the termination clauses changed across renewals,hybrid
+compare compliance requirements across all active vendors,hybrid
+what differences exist between APAC and EMEA contracts,hybrid
+which risk factors are new compared to last year report,hybrid
+show the trend in contract values over the past 5 years,hybrid
+how does the current data policy differ from 2020,hybrid
+find all mentions of penalty clause and show their values,hybrid
+list documents about liability and their approval dates,hybrid
+which vendors mention GDPR and when did they first sign,hybrid
+how has the arbitration clause changed in each renewal,hybrid
+compare indemnification scope in contracts above 1M value,hybrid
+show me semantic context around clause 4.2 in all docs,hybrid
+which documents mention data breach and are still active,hybrid
+explain the payment terms for all overdue invoices,hybrid
+find warranty clauses in contracts expiring this quarter,hybrid
+compare the scope of NDA agreements signed after 2023,hybrid
+what are the SLA penalties for vendor contracts over 500k,hybrid
+list all force majeure clauses and their effective dates,hybrid
+show pending documents that mention regulatory compliance,hybrid
+find contracts by TechCorp and summarise their key terms,hybrid
+which DRAFT agreements contain limitation of liability,hybrid

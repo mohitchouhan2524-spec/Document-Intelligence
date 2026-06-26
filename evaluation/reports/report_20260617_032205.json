@@ -1,0 +1,115 @@
+{
+  "total_samples": 3,
+  "timestamp": "2026-06-17 03:22:05 UTC",
+  "metrics_summary": {
+    "rouge_l": 0.0
+  },
+  "routing_accuracy": 0.6667,
+  "per_route": {
+    "hybrid": {
+      "rouge_l": 0.0,
+      "sample_count": 2
+    },
+    "vectorless": {
+      "rouge_l": 0.0,
+      "sample_count": 1
+    }
+  },
+  "latency_stats": {
+    "overall": {
+      "mean": 7450.43,
+      "p50": 137.54,
+      "p95": 22206.77,
+      "p99": 22206.77,
+      "min": 6.97,
+      "max": 22206.77,
+      "n": 3
+    },
+    "hybrid": {
+      "mean": 11172.16,
+      "p50": 22206.77,
+      "p95": 22206.77,
+      "p99": 22206.77,
+      "min": 137.54,
+      "max": 22206.77,
+      "n": 2
+    },
+    "vectorless": {
+      "mean": 6.97,
+      "p50": 6.97,
+      "p95": 6.97,
+      "p99": 6.97,
+      "min": 6.97,
+      "max": 6.97,
+      "n": 1
+    }
+  },
+  "samples": [
+    {
+      "query": "what are the main risk factors in this filing",
+      "reference": "The main risk factors include market volatility, regulatory changes, and supply chain disruptions.",
+      "answer": "[generation disabled]",
+      "route_used": "hybrid",
+      "expected_route": "vector",
+      "latency_ms": 22206.77,
+      "metrics": [
+        {
+          "name": "rouge_l",
+          "score": 0.0,
+          "reasoning": "LCS=0, P=0.000, R=0.000",
+          "skipped": false
+        },
+        {
+          "name": "routing_correct",
+          "score": 0.0,
+          "reasoning": "predicted=hybrid, expected=vector",
+          "skipped": false
+        }
+      ]
+    },
+    {
+      "query": "what is the total amount on invoice INV-2041",
+      "reference": "The total amount on invoice INV-2041 is $12,450.00.",
+      "answer": "[generation disabled]",
+      "route_used": "vectorless",
+      "expected_route": "vectorless",
+      "latency_ms": 6.97,
+      "metrics": [
+        {
+          "name": "rouge_l",
+          "score": 0.0,
+          "reasoning": "LCS=0, P=0.000, R=0.000",
+          "skipped": false
+        },
+        {
+          "name": "routing_correct",
+          "score": 1.0,
+          "reasoning": "predicted=vectorless, expected=vectorless",
+          "skipped": false
+        }
+      ]
+    },
+    {
+      "query": "how have SLA terms changed since 2022",
+      "reference": "SLA terms were updated in 2023 to reduce response time from 48h to 24h.",
+      "answer": "[generation disabled]",
+      "route_used": "hybrid",
+      "expected_route": "hybrid",
+      "latency_ms": 137.54,
+      "metrics": [
+        {
+          "name": "rouge_l",
+          "score": 0.0,
+          "reasoning": "LCS=0, P=0.000, R=0.000",
+          "skipped": false
+        },
+        {
+          "name": "routing_correct",
+          "score": 1.0,
+          "reasoning": "predicted=hybrid, expected=hybrid",
+          "skipped": false
+        }
+      ]
+    }
+  ]
+}

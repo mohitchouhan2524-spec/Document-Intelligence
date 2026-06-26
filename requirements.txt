@@ -1,0 +1,35 @@
+torch
+transformers
+sentence-transformers
+qdrant-client
+rank-bm25
+pypdf
+beautifulsoup4
+fastapi
+streamlit
+scikit-learn
+loguru
+openai
+python-dotenv
+pydantic
+pydantic-settings
+elasticsearch
+elasticsearch-dsl
+rank-bm25
+spacy
+# chunking
+langchain-text-splitters
+tiktoken
+# Data Ingestion
+python-docx
+unstructured[all-docs]==0.18.15
+# Evaluation
+rouge-score
+bert-score
+datasets
+ragas
+# LLM'S
+anthropic
+groq
+google-genai
+pytest

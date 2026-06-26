@@ -1,0 +1,36 @@
+query,label
+what is the governing law clause in this agreement,vector
+get invoice total for INV-8831,vectorless
+find all documents that mention right of first refusal,vectorless
+who countersigned the partnership deed with GlobalTech,vectorless
+how have warranty terms evolved across contract renewals,hybrid
+explain what the exclusivity clause means in this deal,vector
+show me order ORD-4410 shipping status,vectorless
+search for every file containing the phrase material breach,vectorless
+which contracts mention sub-licensing rights,vectorless
+compare vendor onboarding requirements in 2022 vs 2024,hybrid
+what does the limitation of liability section say,vector
+fetch expiry date of licence LIC-3302,vectorless
+find all records mentioning the Basel III framework,vectorless
+who owns the intellectual property created under this SOW,vectorless
+list documents about indemnification and their current status,hybrid
+what are the dispute resolution steps outlined here,vector
+retrieve status of case CS-9910,vectorless
+which agreements include the term most favoured nation,vectorless
+what obligations does the reseller have under this contract,vector
+how has the payment schedule changed over the last two years,hybrid
+describe the audit rights granted to the client,vector
+find all clauses referencing personal data processing,vectorless
+how many contracts were signed in Q3 2024,vectorless
+who is the primary contact listed in agreement AGR-7701,vectorless
+show all policies that mention data residency and their approval dates,hybrid
+what is the difference between the trial and full licence terms,vector
+get document count uploaded by department LEGAL this year,vectorless
+which files reference the EU AI Act,vectorless
+what remedies are available if the vendor breaches SLA,vector
+compare confidentiality obligations in contracts before and after 2023,hybrid
+find all documents where renewal is AUTO,vectorless
+who reviewed the risk assessment dated March 2024,vectorless
+what does the force majeure provision cover in this contract,vector
+search for every agreement containing the word novation,vectorless
+show pending invoices above 50000 and summarise their payment terms,hybrid

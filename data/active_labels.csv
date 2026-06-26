@@ -1,0 +1,10 @@
+query,label,method
+"query,label",vector,
+"show pending invoices above 50000 and summarise their payment terms,hybrid",hybrid,
+"how have warranty terms evolved across contract renewals,hybrid",vector,
+"list documents about indemnification and their current status,hybrid",hybrid,
+"show all policies that mention data residency and their approval dates,hybrid",hybrid,
+"what is the difference between the trial and full licence terms,vector",hybrid,
+"which contracts mention sub-licensing rights,vectorless",vectorless,graph
+"compare vendor onboarding requirements in 2022 vs 2024,hybrid",hybrid,
+"which files reference the EU AI Act,vectorless",vectorless,graph

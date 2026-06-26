@@ -1,0 +1,4 @@
+query,reference,expected_route
+what are the main risk factors in this filing,"The main risk factors include market volatility, regulatory changes, and supply chain disruptions.",vector
+what is the total amount on invoice INV-2041,"The total amount on invoice INV-2041 is $12,450.00.",vectorless
+how have SLA terms changed since 2022,SLA terms were updated in 2023 to reduce response time from 48h to 24h.,hybrid

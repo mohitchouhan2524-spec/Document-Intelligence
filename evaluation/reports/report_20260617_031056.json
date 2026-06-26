@@ -1,0 +1,118 @@
+{
+  "total_samples": 3,
+  "timestamp": "2026-06-17 03:10:56 UTC",
+  "metrics_summary": {},
+  "routing_accuracy": null,
+  "per_route": {
+    "error": {
+      "sample_count": 3
+    }
+  },
+  "latency_stats": {
+    "overall": {}
+  },
+  "samples": [
+    {
+      "query": "what are the main risk factors in this filing",
+      "reference": "The main risk factors include market volatility, regulatory changes, and supply chain disruptions.",
+      "answer": "[pipeline_error: Unknown LLM provider: 'anthropic']",
+      "route_used": "error",
+      "expected_route": null,
+      "latency_ms": 0.0,
+      "metrics": [
+        {
+          "name": "rouge_l",
+          "score": 0.0,
+          "reasoning": "pipeline_error",
+          "skipped": true
+        },
+        {
+          "name": "faithfulness",
+          "score": 0.0,
+          "reasoning": "pipeline_error",
+          "skipped": true
+        },
+        {
+          "name": "answer_relevancy",
+          "score": 0.0,
+          "reasoning": "pipeline_error",
+          "skipped": true
+        },
+        {
+          "name": "context_precision",
+          "score": 0.0,
+          "reasoning": "pipeline_error",
+          "skipped": true
+        }
+      ]
+    },
+    {
+      "query": "what is the total amount on invoice INV-2041",
+      "reference": "The total amount on invoice INV-2041 is $12,450.00.",
+      "answer": "[pipeline_error: Unknown LLM provider: 'anthropic']",
+      "route_used": "error",
+      "expected_route": null,
+      "latency_ms": 0.0,
+      "metrics": [
+        {
+          "name": "rouge_l",
+          "score": 0.0,
+          "reasoning": "pipeline_error",
+          "skipped": true
+        },
+        {
+          "name": "faithfulness",
+          "score": 0.0,
+          "reasoning": "pipeline_error",
+          "skipped": true
+        },
+        {
+          "name": "answer_relevancy",
+          "score": 0.0,
+          "reasoning": "pipeline_error",
+          "skipped": true
+        },
+        {
+          "name": "context_precision",
+          "score": 0.0,
+          "reasoning": "pipeline_error",
+          "skipped": true
+        }
+      ]
+    },
+    {
+      "query": "how have SLA terms changed since 2022",
+      "reference": "SLA terms were updated in 2023 to reduce response time from 48h to 24h.",
+      "answer": "[pipeline_error: Unknown LLM provider: 'anthropic']",
+      "route_used": "error",
+      "expected_route": null,
+      "latency_ms": 0.0,
+      "metrics": [
+        {
+          "name": "rouge_l",
+          "score": 0.0,
+          "reasoning": "pipeline_error",
+          "skipped": true
+        },
+        {
+          "name": "faithfulness",
+          "score": 0.0,
+          "reasoning": "pipeline_error",
+          "skipped": true
+        },
+        {
+          "name": "answer_relevancy",
+          "score": 0.0,
+          "reasoning": "pipeline_error",
+          "skipped": true
+        },
+        {
+          "name": "context_precision",
+          "score": 0.0,
+          "reasoning": "pipeline_error",
+          "skipped": true
+        }
+      ]
+    }
+  ]
+}
