@@ -402,13 +402,20 @@ def _tab_chat():
                         _render_chunk_cards(chunks)
 
     # ── Input 
-    st.markdown("<br>", unsafe_allow_html=True)
-    col_input, col_btn = st.columns([10, 1])
-    with col_input:
-        query = st.chat_input("Ask a question about your documents…")
-
-    if query:
-        _handle_query(query.strip())
+    if "question_count" not in st.session_state:
+        st.session_state.question_count = 0
+    if st.session_state.question_count >= 10:
+        st.warning("You have reached the 10-question limit for this session. Please clear the chat to start over!")
+    # Passing disabled=True locks the input box
+        query = st.chat_input("Limit reached", disabled=True)
+    else:
+        st.markdown("<br>", unsafe_allow_html=True)
+        col_input, col_btn = st.columns([10, 1])
+        with col_input:
+            query = st.chat_input("Ask a question about your documents…")
+            if query:
+                st.session_state.question_count+=1
+                _handle_query(query.strip())
 
 
 def _handle_query(query: str):
