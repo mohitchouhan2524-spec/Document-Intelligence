@@ -46,7 +46,7 @@ Config (configs/config.yaml)
     retrieval.rrf_k           : 60
     retrieval.reranker_top_k  : 5
     llm.provider              : "groq" | "gemini"
-    llm.model                 : "llama-3.3-70b-versatile"
+    llm.model                 : "qwen/qwen3.6-27b"
 """
 from __future__ import annotations
 

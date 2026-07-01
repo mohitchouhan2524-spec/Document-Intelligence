@@ -221,7 +221,6 @@ def _init_state():
 
 _init_state()
 
-
 # ── Pipeline loader 
 
 @st.cache_resource(show_spinner="Loading pipeline…")

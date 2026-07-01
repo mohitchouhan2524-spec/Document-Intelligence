@@ -55,7 +55,7 @@ retrieval:
 
 llm:
   provider: "groq"    # "groq" | "openai"
-  model: "llama-3.3-70b-versatile"
+  model: "qwen/qwen3.6-27b"
   max_tokens: 2048
   temperature: 0.1
   system_prompt: |
