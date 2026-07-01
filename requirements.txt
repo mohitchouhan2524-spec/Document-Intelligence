@@ -33,3 +33,4 @@ anthropic
 groq
 google-genai
 pytest
+supabase

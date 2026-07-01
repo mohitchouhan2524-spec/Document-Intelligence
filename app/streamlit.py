@@ -21,6 +21,65 @@ import tempfile
 from pathlib import Path
 from typing import Any
 import streamlit as st
+import os
+import supabase
+from supabase import create_client, Client
+
+# 1. Initialize the Supabase Client
+@st.cache_resource
+def init_supabase():
+    url = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_KEY")
+    return create_client(url, key)
+
+supabase = init_supabase()
+
+# 2. Initialize User Session State
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+# 3. The Gatekeeper: Check if logged in
+if st.session_state.user is None:
+    # --- SHOW LOGIN/SIGNUP SCREEN ---
+    st.title("🔐 Welcome to Document Intelligence")
+    
+    tab_login, tab_signup = st.tabs(["Login", "Sign Up"])
+    
+    with tab_login:
+        email = st.text_input("Email", key="login_email")
+        password = st.text_input("Password", type="password", key="login_pass")
+        if st.button("Log In"):
+            try:
+                response = supabase.auth.sign_in_with_password({"email": email, "password": password})
+                st.session_state.user = response.user
+                st.rerun() # Refresh the app instantly
+            except Exception as e:
+                st.error(f"Login failed: {str(e)}")
+                
+    with tab_signup:
+        new_email = st.text_input("Email", key="signup_email")
+        new_password = st.text_input("Password", type="password", key="signup_pass")
+        if st.button("Create Account"):
+            try:
+                response = supabase.auth.sign_up({"email": new_email, "password": new_password})
+                st.success("Account created! Please check your email to verify your account, then log in.")
+            except Exception as e:
+                st.error(f"Signup failed: {str(e)}")
+
+else:
+    # --- SHOW MAIN APP (User is logged in) ---
+    
+    # Put a nice welcome and logout button in the sidebar
+    with st.sidebar:
+        st.write(f"👤 Logged in as: {st.session_state.user.email}")
+        if st.button("Log Out"):
+            supabase.auth.sign_out()
+            st.session_state.user = None
+            st.rerun()
+            
+    # >>> YOUR EXISTING STREAMLIT CODE GOES HERE <<<
+    # (e.g., _tab_chat(), file uploads, etc.)
+
 
 # ── Project root on path 
 ROOT = Path(__file__).resolve().parent.parent
@@ -220,7 +279,6 @@ def _init_state():
             st.session_state[k] = v
 
 _init_state()
-
 # ── Pipeline loader 
 
 @st.cache_resource(show_spinner="Loading pipeline…")
