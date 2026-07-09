@@ -4,7 +4,7 @@ classifier/train.py
 ML classifier for Hybrid-RAG query routing in Document Intelligence.
 
 Routes each user query to one of three retrieval paths:
-    VECTOR      → dense semantic search via Qdrant
+    VECTOR      → dense semantic search via supabase pgvector
     VECTORLESS  → BM25 / SQL / graph via Elasticsearch + SQLite
     HYBRID      → both paths fused via RRF
 

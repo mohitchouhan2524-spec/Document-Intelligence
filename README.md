@@ -5,13 +5,14 @@ Document Intelligence Project:An end-to-end Hybrid-RAG pipeline featuring Recipr
 (b).Reciprocal Rank Fusion (RRF): Merges conflicting retrieval scores mathematically (using a standard (k=60) dampening factor) to surface the absolute best document chunks. The formula used is:
 RRF(d) = \sum_{i \in \{\text{vector, vectorless}\}} \frac{1}{k + rank_i(d)}
 (c).Multi-Model LLM Routing: Seamlessly switches between Groq (e.g., Llama models) and Google GenAI APIs based on configuration.(d).Cross-Encoder Reranking: Re-evaluates and heavily scrutinizes retrieved chunks before feeding them to the LLM to guarantee high-fidelity answers.
-(e).Deterministic Vector Indexing: Utilizes a deterministic hashing method, such as generating a UUID from the chunk ID, to prevent database duplication. Qdrant natively accepts these UUID strings as valid point IDs.
-(f).Secure Secrets Management: Follows industry standards for environment variables and Streamlit secrets to ensure API keys are never leaked to the frontend.
+(e). Supabase pgvector Indexing: Stores document embeddings in Supabase PostgreSQL with pgvector, enabling scalable semantic search, per-user document isolation, similarity search via RPC, and efficient vector retrieval without requiring a locally hosted vector database.
+(f).Secure Secrets Management: Follows industry standards for environment variables and Streamlit secrets to ensure API keys and Supabase credentials are never leaked to the frontend.
 3. Technology Stack-
 Frontend: Streamlit 
-Vector Database: Qdrant (via Docker) 
+Vector Database: Supabase PostgreSQL
 Embedding Models:BAAI/bge-large-en-v1.5 (Local) and Google GenAI 
 LLM Providers: Groq, Google GenAI 
+Vectorless Retrieval:SQLite,Elasticsearch/InMemoryBM25
 Data Models: Pydantic V2 
 4. Setup & Installation
 Step 1: Install Dependencies Ensure you have a modern Python environment active, then install the required packages:using command :- uv add -r requirements.txt
@@ -19,9 +20,9 @@ Step 1: Install Dependencies Ensure you have a modern Python environment active,
 Step 2: Configure Environment Variables Create a .env file in the root directory of the project and securely add your API keys:Code snippet --
 GROQ_API_KEY="your_groq_api_key"
 GOOGLE_API_KEY="your_google_api_key"
-Step 3: Start the Qdrant Vector Database
-You must run the Qdrant vector database locally using Docker before starting the pipeline. Use the following command, ensuring you define an absolute path for your local volume mapping:
-docker run -p 6333:6333 -p 6334:6334 -v "C:\Your\Actual\Path\Here:/qdrant/storage" qdrant/qdrant
+Step 3:Configure Supabase
+Create a Supabase project and enable the pgvector extension.
+Create the required tables(documents,chunks) and the similarity search RPC function (match_chunks) used by the application for semantic retrieval.
 Step 4: Run the Application
 Run your ingestion/indexing script first to populate the database with text embeddings.Launch the Streamlit user interface:Bash
 streamlit run app/streamlit.py

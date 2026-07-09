@@ -4,7 +4,7 @@ classifier
 Query-route classifier for Hybrid-RAG Document Intelligence.
 
 Routes each incoming query to one of three retrieval paths:
-    RouteType.VECTOR      → dense semantic search (Qdrant)
+    RouteType.VECTOR      → dense semantic search (supabase pgvector)
     RouteType.VECTORLESS  → BM25 / SQL / graph (Elasticsearch + SQLite)
     RouteType.HYBRID      → both paths, results fused via RRF
 

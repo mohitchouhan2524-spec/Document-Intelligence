@@ -3,33 +3,33 @@ hybrid/fusion.py
 Central orchestrator for the Hybrid-RAG Document Intelligence pipeline.
 
 End-to-end flow
-───────────────
+─
     query
       │
       ▼
     QueryClassifier.classify()          ← rules.py → train.py
       │
-      ├─ RouteType.VECTOR    ──────────▶ VectorRetriever.retrieve_and_rerank()
+      ├─ RouteType.VECTOR    ▶ VectorRetriever.retrieve_and_rerank()
       │
       ├─ RouteType.VECTORLESS
       │       ├─ VectorlessMethod.BM25  ▶ BM25Retriever.search()
       │       ├─ VectorlessMethod.SQL   ▶ SQLRetriever.search()
       │       └─ VectorlessMethod.GRAPH ▶ KnowledgeGraphBuilder.search()
       │
-      └─ RouteType.HYBRID   ──────────▶ vector + vectorless in parallel
+      └─ RouteType.HYBRID   ▶ vector + vectorless in parallel
                                           └─ RRFusion.fuse()
       │
       ▼
     ContextAssembler.build()            deduplicate · trim · format
       │
       ▼
-    LLMGenerator.generate()             GROQ/GEMINI
+    LLMGenerator.generate()             Anthropic / OpenAI
       │
       ▼
     RAGResponse
 
 Public API
-──────────
+
     from hybrid.fusion import HybridPipeline
 
     pipeline = HybridPipeline()
@@ -41,12 +41,12 @@ Public API
     response.latency_ms       → float
 
 Config (configs/config.yaml)
-────────────────────────────
+
     retrieval.fusion_method   : "rrf" | "linear"
     retrieval.rrf_k           : 60
     retrieval.reranker_top_k  : 5
-    llm.provider              : "groq" | "gemini"
-    llm.model                 : "qwen/qwen3.6-27b"
+    llm.provider              : "anthropic" | "openai"
+    llm.model                 : "claude-opus-4-6"
 """
 from __future__ import annotations
 
@@ -55,7 +55,7 @@ import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
-from google.genai import types
+
 from loguru import logger
 
 from src.config import get_settings
@@ -68,39 +68,100 @@ from src.models import (
 )
 from classifier.train import predict_intent
 
+def _build_bm25() -> Any:
+    """
+    Try Elasticsearch first with a short connect timeout.
+    If it is not reachable (WinError 10061 / Connection refused / timeout),
+    fall back to InMemoryBM25 which loads from the persisted pkl on disk.
+ 
+    Logs at INFO (not WARNING) because the fallback is intentional and fully
+    functional — no action is required from the user.
+    """
+    # Quick port check before attempting a full ES connection — avoids the
+    # 5-second TCP timeout that Elasticsearch triggers on every cold start.
+    import socket
+    es_host = "localhost"
+    es_port = 9200
+    es_available = False
+    try:
+        sock = socket.create_connection((es_host, es_port), timeout=0.5)
+        sock.close()
+        es_available = True
+    except OSError:
+        pass   # port not open — skip ES entirely
+ 
+    if es_available:
+        try:
+            from vectorless_rag.bm25 import ElasticsearchBM25
+            bm25 = ElasticsearchBM25()
+            logger.info("BM25: Elasticsearch connected")
+            return bm25
+        except Exception as e:
+            logger.info(f"BM25: Elasticsearch reachable but init failed ({e}), using InMemoryBM25")
+ 
+    # Fallback — loads persisted pkl from data/indexes/bm25_index.pkl if it exists
+    from vectorless_rag.bm25 import InMemoryBM25
+    bm25 = InMemoryBM25()
+    if bm25._bm25 is None:
+        logger.info(
+            "BM25: InMemoryBM25 ready (index is empty — upload and ingest "
+            "documents first to populate it)"
+        )
+    else:
+        logger.info(
+            f"BM25: InMemoryBM25 loaded {len(bm25._chunks)} chunks from disk"
+        )
+    return bm25
 
-# ── Retriever registry 
+# ── Retriever registry ──
 # Lazy-loaded singletons: only initialised when actually needed.
-# Avoids loading Qdrant/ES/spaCy clients if they're not used.
+# Avoids loading supabase/ES/spaCy clients if they're not used.
 
 class _RetrieverRegistry:
-    """Lazy singleton registry — imports and constructs retrievers on first use."""
+    """
+    Lazy singleton registry — imports and constructs retrievers on first use.
 
-    def __init__(self):
-        self._vector:    Any = None
-        self._bm25:      Any = None
-        self._graph:     Any = None
-        self._sql:       Any = None
+    user_id and supabase_client are required for the vector path (Supabase
+    pgvector). They are injected by HybridPipeline at construction time.
+    """
+
+    def __init__(
+        self,
+        user_id:          str | None = None,
+        supabase_client:  Any        = None,
+    ):
+        self._user_id         = user_id
+        self._supabase_client = supabase_client
+        self._vector: Any     = None
+        self._bm25:   Any     = None
+        self._graph:  Any     = None
+        self._sql:    Any     = None
 
     @property
     def vector(self):
         if self._vector is None:
-            from vector_rag.retrieve import VectorRetriever
-            self._vector = VectorRetriever()
-            logger.debug("VectorRetriever initialised")
+            if self._user_id and self._supabase_client:
+                from vector_rag.retrieve import SupabaseVectorRetriever
+                self._vector = SupabaseVectorRetriever(
+                    user_id=self._user_id,
+                    supabase_client=self._supabase_client,
+                )
+                logger.debug(
+                    f"SupabaseVectorRetriever initialised "
+                    f"(user={self._user_id[:8]})"
+                )
+            else:
+                logger.warning(
+                    "No user_id/supabase_client provided to _RetrieverRegistry — "
+                    "vector retrieval disabled. Pass them via HybridPipeline(...)"
+                )
+                self._vector = _NullRetriever("vector (no supabase context)")
         return self._vector
 
     @property
     def bm25(self):
         if self._bm25 is None:
-            try:
-                from vectorless_rag.bm25 import ElasticsearchBM25
-                self._bm25 = ElasticsearchBM25()
-                logger.debug("ElasticsearchBM25 initialised")
-            except Exception as e:
-                logger.warning(f"Elasticsearch unavailable ({e}), falling back to InMemoryBM25")
-                from vectorless_rag.bm25 import InMemoryBM25
-                self._bm25 = InMemoryBM25()
+            self._bm25 = _build_bm25()
         return self._bm25
 
     @property
@@ -172,6 +233,7 @@ class RRFusion:
         rrf_scores: dict[str, float] = defaultdict(float)
         # chunk_id → chunk object (keep the one with higher original score)
         chunk_map:  dict[str, RetrievedChunk] = {}
+
         for rank, chunk in enumerate(vector_chunks, start=1):
             rrf_scores[chunk.chunk_id] += 1.0 / (self.k + rank)
             if chunk.chunk_id not in chunk_map or chunk.score > chunk_map[chunk.chunk_id].score:
@@ -246,7 +308,7 @@ class LinearFusion:
         return result
 
 
-# ── Context assembler 
+# ── Context assembler ───
 
 class ContextAssembler:
     """
@@ -297,31 +359,55 @@ class ContextAssembler:
         # 4. Format
         sections: list[str] = []
         for i, chunk in enumerate(kept, start=1):
-            # 2. Add safety fallback (chunk.metadata or {}) in case metadata is None
-            metadata = chunk.metadata or {}
-            source   = metadata.get("filename") or metadata.get("source") or chunk.doc_id
-    
-    # Assumes chunk.source is an Enum. If it's just a string, remove .value
-            retriever = chunk.source.value 
-    
+            source   = chunk.metadata.get("filename") or chunk.metadata.get("source") or chunk.doc_id
+            retriever = chunk.source.value
             header   = f"[{i}] Source: {source}  |  Retriever: {retriever}  |  Score: {chunk.score:.4f}"
-            content  = chunk.content.strip()
-    
-            sections.append(f"{header}\n{content}")
-            total_chars += len(content)  # 3. Update character count for the logger
+            sections.append(f"{header}\n{chunk.content.strip()}")
 
-            context = "\n\n---\n\n".join(sections) if sections else "No relevant context found."
-            logger.debug(f"Context assembled: {len(kept)} chunks, ~{total_chars // getattr(self, '_CHARS_PER_TOKEN', 4)} tokens")
-            return context, kept
+        context = "\n\n---\n\n".join(sections) if sections else "No relevant context found."
+        logger.debug(f"Context assembled: {len(kept)} chunks, ~{total_chars // self._CHARS_PER_TOKEN} tokens")
+        return context, kept
 
 
-# ── LLM generator 
+# ── LLM generator ───────
 
 class LLMGenerator:
     """
-    Wraps GROQ and gemini generation.
-    Provider and model are set in configs/config.yaml → llm section.
+    Multi-provider LLM generator for Hybrid-RAG Document Intelligence.
+
+    Supported providers (set via configs/config.yaml → llm.provider)
+    ─
+        anthropic  — Claude models via Anthropic SDK
+                     env: ANTHROPIC_API_KEY
+                     model examples: claude-opus-4-6, claude-sonnet-4-6
+
+        openai     — GPT models via OpenAI SDK
+                     env: OPENAI_API_KEY
+                     model examples: gpt-4o, gpt-4o-mini
+
+        groq       — Fast inference via Groq (OpenAI-compatible API)
+                     env: GROQ_API_KEY
+                     model examples: llama-3.3-70b-versatile,
+                                     mixtral-8x7b-32768,
+                                     gemma2-9b-it
+
+        genai      — Google Gemini via google-genai SDK
+                     env: GOOGLE_API_KEY
+                     model examples: gemini-2.0-flash, gemini-1.5-pro
+
+    Root cause note
+    ─
+    If config.yaml sets llm.provider to "groq" or "genai" but those
+    branches were missing, _get_client() raised ValueError which
+    propagated through generate() as an AttributeError in Streamlit.
+    All four providers are now handled explicitly.
     """
+
+    _SYSTEM_PROMPT = (
+        "You are a Document Intelligence assistant. Answer questions accurately "
+        "based solely on the provided context. If the context is insufficient, "
+        "say so clearly. Never hallucinate facts not present in the context."
+    )
 
     _PROMPT_TEMPLATE = """\
 Use the following retrieved context to answer the question.
@@ -336,13 +422,14 @@ QUESTION:
 
 ANSWER:"""
 
-    _SUPPORTED = {"google_genai", "groq"}
+    # ── supported providers───
+    _SUPPORTED = {"anthropic", "openai", "groq", "genai"}
 
     def __init__(self):
         cfg = get_settings()
         self.llm_cfg = cfg.llm
         self._client: Any = None
-        
+
         provider = self.llm_cfg.provider
         if provider not in self._SUPPORTED:
             raise ValueError(
@@ -351,91 +438,186 @@ ANSWER:"""
                 f"Set llm.provider in configs/config.yaml"
             )
 
-    def _get_client(self):
-        """Initializes and returns the correct API client based on the provider."""
+    # ── client factory 
+
+    def _get_client(self) -> Any:
+        """Lazy-init client — constructed once, reused across calls."""
         if self._client is not None:
             return self._client
-            
-        if self.llm_cfg.provider == "groq":
-            from groq import Groq
-            api_key = os.getenv("GROQ_API_KEY")
-            if not api_key:
-                raise ValueError("GROQ_API_KEY environment variable not set.")
-            self._client = Groq(api_key=api_key)
-            
-        elif self.llm_cfg.provider == "google_genai":
-            from google import genai
-            api_key = os.getenv("GOOGLE_API_KEY")
-            if not api_key:
-                raise ValueError("GOOGLE_API_KEY environment variable not set.")
-            self._client = genai.Client(api_key=api_key)
-            
-        else:
-            raise ValueError(f"Unknown provider: {self.llm_cfg.provider}")
-            
+
+        provider = self.llm_cfg.provider
+
+        if provider == "anthropic":
+            import anthropic
+            key = os.getenv("ANTHROPIC_API_KEY", "")
+            if not key:
+                raise EnvironmentError(
+                    "ANTHROPIC_API_KEY not set. "
+                    "Add it to your .env file: ANTHROPIC_API_KEY=sk-ant-..."
+                )
+            self._client = anthropic.Anthropic(api_key=key)
+
+        elif provider == "openai":
+            from openai import OpenAI
+            key = os.getenv("OPENAI_API_KEY", "")
+            if not key:
+                raise EnvironmentError(
+                    "OPENAI_API_KEY not set. "
+                    "Add it to your .env file: OPENAI_API_KEY=sk-..."
+                )
+            self._client = OpenAI(api_key=key)
+
+        elif provider == "groq":
+            try:
+                from groq import Groq
+            except ImportError:
+                raise ImportError(
+                    "groq package not installed.\n"
+                    "Install it with: pip install groq"
+                )
+            key = os.getenv("GROQ_API_KEY", "")
+            if not key:
+                raise EnvironmentError(
+                    "GROQ_API_KEY not set. "
+                    "Add it to your .env file: GROQ_API_KEY=gsk_..."
+                )
+            self._client = Groq(api_key=key)
+
+        elif provider == "genai":
+            try:
+                from google import genai
+            except ImportError:
+                raise ImportError(
+                    "google-genai package not installed.\n"
+                    "Install it with: pip install google-genai"
+                )
+            key = os.getenv("GOOGLE_API_KEY", "")
+            if not key:
+                raise EnvironmentError(
+                    "GOOGLE_API_KEY not set. "
+                    "Add it to your .env file: GOOGLE_API_KEY=AIza..."
+                )
+            self._client = genai.Client(api_key=key)
+
+        logger.debug(f"LLMGenerator: {provider} client initialised "
+                     f"(model={self.llm_cfg.model})")
         return self._client
 
-    def _generate_groq(self, client: Any, user_content: str) -> str:
-        system = self.llm_cfg.system_prompt or (
-            "You are a Document Intelligence assistant. Answer questions accurately "
-            "based solely on the provided context. If the context is insufficient, "
-            "say so clearly. Never hallucinate facts not present in the context."
-        )
+    # ── public entry point
+
+    def generate(self, query: str, context: str) -> str:
+        """
+        Generate an answer grounded in the retrieved context.
+
+        Parameters
         
-        # Groq uses the OpenAI-compatible Chat Completions API
+        query   : the user's original question
+        context : formatted string from ContextAssembler.build()
+
+        Returns
+        ───────
+        str — the model's answer, or a bracketed error string on failure
+        """
+        user_content = self._PROMPT_TEMPLATE.format(
+            context=context, query=query
+        )
+        try:
+            client   = self._get_client()
+            provider = self.llm_cfg.provider
+
+            if provider == "anthropic":
+                return self._generate_anthropic(client, user_content)
+            elif provider == "openai":
+                return self._generate_openai(client, user_content)
+            elif provider == "groq":
+                return self._generate_groq(client, user_content)
+            elif provider == "genai":
+                return self._generate_genai(client, user_content)
+            else:
+                # Should never reach here — caught in __init__
+                return f"[Unsupported provider: {provider!r}]"
+
+        except EnvironmentError as e:
+            # Missing API key — surface clearly in UI
+            logger.error(f"LLMGenerator config error: {e}")
+            return f"[Config error: {e}]"
+        except ImportError as e:
+            logger.error(f"LLMGenerator import error: {e}")
+            return f"[Import error: {e}]"
+        except Exception as e:
+            logger.error(f"LLM generation failed ({self.llm_cfg.provider}): {e}")
+            return f"[Generation error: {e}]"
+
+    # ── provider implementations────────
+
+    def _system(self) -> str:
+        """Return system prompt from config, or the shared default."""
+        return self.llm_cfg.system_prompt.strip() or self._SYSTEM_PROMPT
+
+    def _generate_anthropic(self, client: Any, user_content: str) -> str:
+        message = client.messages.create(
+            model=self.llm_cfg.model,
+            max_tokens=self.llm_cfg.max_tokens,
+            temperature=self.llm_cfg.temperature,
+            system=self._system(),
+            messages=[{"role": "user", "content": user_content}],
+        )
+        return message.content[0].text
+
+    def _generate_openai(self, client: Any, user_content: str) -> str:
         resp = client.chat.completions.create(
             model=self.llm_cfg.model,
             max_tokens=self.llm_cfg.max_tokens,
             temperature=self.llm_cfg.temperature,
             messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user_content}
+                {"role": "system", "content": self._system()},
+                {"role": "user",   "content": user_content},
+            ],
+        )
+        return resp.choices[0].message.content
+
+    def _generate_groq(self, client: Any, user_content: str) -> str:
+        """
+        Groq uses an OpenAI-compatible Chat Completions API.
+        Fast inference for open-source models (Llama, Mixtral, Gemma).
+        """
+        resp = client.chat.completions.create(
+            model=self.llm_cfg.model,
+            max_tokens=self.llm_cfg.max_tokens,
+            temperature=self.llm_cfg.temperature,
+            messages=[
+                {"role": "system", "content": self._system()},
+                {"role": "user",   "content": user_content},
             ],
         )
         return resp.choices[0].message.content
 
     def _generate_genai(self, client: Any, user_content: str) -> str:
-        system = self.llm_cfg.system_prompt or (
-            "You are a Document Intelligence assistant. Answer only from provided context."
-        )
-        
-        # Google GenAI uses the models.generate_content API
+        """
+        Google Gemini via google-genai SDK.
+        Uses models.generate_content with GenerateContentConfig.
+        """
+        from google.genai import types as genai_types
         resp = client.models.generate_content(
             model=self.llm_cfg.model,
             contents=user_content,
-            config=types.GenerateContentConfig(
-                system_instruction=system,
+            config=genai_types.GenerateContentConfig(
+                system_instruction=self._system(),
                 temperature=self.llm_cfg.temperature,
                 max_output_tokens=self.llm_cfg.max_tokens,
-            )
+            ),
         )
         return resp.text
 
-    def generate(self, query: str, context: str) -> str:
-        """Routes the generation request to the correct configured LLM provider."""
-        client = self._get_client()
-        
-        # Stitch the retrieved context and user query together into one prompt
-        user_content = self._PROMPT_TEMPLATE.format(context=context, query=query)
-        
-        try:
-            if self.llm_cfg.provider == "groq":
-                return self._generate_groq(client, user_content)
-            elif self.llm_cfg.provider == "google_genai":
-                return self._generate_genai(client, user_content)
-            else:
-                raise ValueError(f"Generation not implemented for provider: {self.llm_cfg.provider}")
-        except Exception as e:
-            logger.error(f"LLM generation failed: {e}")
-            return f"[Generation error: {e}]"
 
-# ── Main pipeline
+# ── Main pipeline ───────
 
 class HybridPipeline:
     """
     End-to-end Hybrid-RAG pipeline for Document Intelligence.
 
     Usage
+    ─────
         pipeline = HybridPipeline()
         response = pipeline.query("compare SLA terms across all active vendors")
 
@@ -445,6 +627,7 @@ class HybridPipeline:
             print(chunk.score, chunk.content[:80])
 
     Constructor kwargs
+    ────
         fusion_method   : "rrf" | "linear"  (overrides config.yaml)
         vector_weight   : float  (only used when fusion_method="linear")
         vectorless_weight: float (only used when fusion_method="linear")
@@ -457,11 +640,23 @@ class HybridPipeline:
         vector_weight:      float        = 0.5,
         vectorless_weight:  float        = 0.5,
         generate:           bool         = True,
+        user_id:            str   | None = None,
+        supabase_client:    Any          = None,
     ):
-        cfg = get_settings()
+        """
+        Parameters
+        user_id         : authenticated Supabase user UUID — scopes all
+                          vector searches to this user's chunks only.
+        supabase_client : initialised supabase.Client — passed from the
+                          Streamlit session so no second auth is needed.
+        """
+        cfg    = get_settings()
         method = fusion_method or cfg.retrieval.fusion_method
 
-        self._registry   = _RetrieverRegistry()
+        self._registry   = _RetrieverRegistry(
+            user_id=user_id,
+            supabase_client=supabase_client,
+        )
         self._assembler  = ContextAssembler()
         self._generator  = LLMGenerator() if generate else None
         self._do_generate = generate
@@ -486,7 +681,7 @@ class HybridPipeline:
         Run the full pipeline and return a RAGResponse.
 
         Parameters
-        ──────────
+        
         query           : the user's question
         top_k           : override number of final chunks (default from config)
         metadata_filter : pass-through filter to vector retriever
@@ -535,7 +730,8 @@ class HybridPipeline:
         )
         logger.info(f"Pipeline complete — {latency_ms:.0f}ms | route={intent.route.value} | chunks={len(final_chunks)}")
         return response
-    # ── Retrieve-only shortcut (no LLM) ─
+
+    # ── Retrieve-only shortcut (no LLM)
 
     def retrieve(
         self,
@@ -549,7 +745,7 @@ class HybridPipeline:
         _, final = self._assembler.build(chunks, max_chunks=top_k)
         return final
 
-    # ── Internal steps
+    # ── Internal steps 
 
     def _classify(self, query: str) -> QueryIntent:
         try:

@@ -1,79 +1,111 @@
 """
 vector_rag/retrieve.py
-──────────────────────
-Dense retrieval from Qdrant + cross-encoder reranking.
+────────────────────────────────────────────────────────────────────────────────
+Supabase pgvector retriever for Hybrid-RAG Document Intelligence.
+
+Replaces the supabase-based VectorRetriever.
+All searches are scoped to the authenticated user's chunks only.
+
+Usage (called by fusion.py via _RetrieverRegistry)
+───────────────────────────────────────────────────
+    retriever = SupabaseVectorRetriever(
+        user_id=user_id,
+        supabase_client=sb,
+    )
+    results = retriever.retrieve_and_rerank("explain the SLA terms")
 """
 from __future__ import annotations
 
+from typing import Any
+
 from loguru import logger
-from qdrant_client import QdrantClient
-from qdrant_client.models import Filter, FieldCondition, MatchValue
 
 from src.config import get_settings
 from src.models import RetrievedChunk, RouteType
-from vector_rag.embed import EmbeddingEngine
+from vector_rag.embed import EmbeddingEngine, SupabaseVectorStore
 
 
-class VectorRetriever:
-    def __init__(self):
-        cfg = get_settings()
-        self.cfg_qdrant = cfg.qdrant
-        self.cfg_ret = cfg.retrieval
-        self.client = QdrantClient(host=cfg.qdrant.host, port=cfg.qdrant.port)
-        self.embedder = EmbeddingEngine()
-        self._reranker = None  # lazy-loaded
+class SupabaseVectorRetriever:
+    """
+    Dense retrieval from Supabase pgvector + optional cross-encoder reranking.
+
+    Parameters
+    ──────────
+    user_id         : authenticated user's UUID (from Supabase auth)
+    supabase_client : initialised supabase.Client instance
+    """
+
+    def __init__(self, user_id: str, supabase_client: Any):
+        cfg             = get_settings()
+        self.cfg_ret    = cfg.retrieval
+        self.top_k      = cfg.retrieval.reranker_top_k
+        self.embedder   = EmbeddingEngine()
+        self.store      = SupabaseVectorStore(
+            user_id=user_id,
+            supabase_client=supabase_client,
+        )
+        self._reranker  = None   # lazy-loaded
+
+    # ── Public API (matches the contract fusion.py expects) ───────────────
 
     def retrieve(
         self,
+        query:           str,
+        top_k:           int  | None = None,
+        metadata_filter: dict | None = None,  # unused — RLS handles isolation
+    ) -> list[RetrievedChunk]:
+        """
+        Embed query → cosine similarity search in Supabase.
+        Returns up to top_k chunks for this user.
+        """
+        top_k       = top_k or self.cfg_ret.reranker_top_k
+        query_vec   = self.embedder.embed_query(query)
+        results     = self.store.similarity_search(query_vec, top_k=top_k)
+
+        if not results:
+            logger.warning(
+                f"Supabase vector search returned 0 results for user "
+                f"{self.store.user_id[:8]}. "
+                f"Has the user uploaded and ingested any documents?"
+            )
+        else:
+            logger.debug(
+                f"Supabase retrieval: {len(results)} results "
+                f"for '{query[:60]}'"
+            )
+        return results
+
+    def retrieve_and_rerank(
+        self,
         query: str,
         top_k: int | None = None,
-        metadata_filter: dict | None = None,
     ) -> list[RetrievedChunk]:
-        top_k = top_k or self.cfg_qdrant.top_k
-        query_vec = self.embedder.embed_query(query)
+        """
+        Retrieve a wider candidate set, then rerank with a cross-encoder.
+        Final list is trimmed to top_k after reranking.
+        """
+        final_k    = top_k or self.cfg_ret.reranker_top_k
+        candidates = self.retrieve(query, top_k=final_k * 3)
 
-        qdrant_filter = None
-        if metadata_filter:
-            conditions = [
-                FieldCondition(key=k, match=MatchValue(value=v))
-                for k, v in metadata_filter.items()
-            ]
-            qdrant_filter = Filter(must=conditions)
+        if not candidates:
+            return []
 
-        results = self.client.query_points(
-            collection_name=self.cfg_qdrant.collection_name,
-            query=query_vec,
-            limit=top_k,
-            query_filter=qdrant_filter,
-            with_payload=True,
-        )
+        return self._rerank(query, candidates, final_k)
 
-        chunks = [
-            RetrievedChunk(
-                chunk_id=r.payload.get("chunk_id", str(r.id)),
-                doc_id=r.payload.get("doc_id", ""),
-                content=r.payload.get("content", ""),
-                score=r.score,
-                source=RouteType.VECTOR,
-                metadata={k: v for k, v in r.payload.items() if k not in ("content", "chunk_id", "doc_id")},
-            )
-            for r in results.points
-        ]
-        logger.debug(f"Vector retrieval: {len(chunks)} results for query '{query[:60]}...'")
-        return chunks
+    # ── Internal 
 
-    def retrieve_and_rerank(self, query: str, top_k: int | None = None) -> list[RetrievedChunk]:
-        """Retrieve wider set then rerank with cross-encoder."""
-        candidates = self.retrieve(query, top_k=(top_k or self.cfg_ret.reranker_top_k) * 3)
-        return self._rerank(query, candidates, top_k or self.cfg_ret.reranker_top_k)
-
-    def _rerank(self, query: str, chunks: list[RetrievedChunk], top_k: int) -> list[RetrievedChunk]:
+    def _rerank(
+        self,
+        query:   str,
+        chunks:  list[RetrievedChunk],
+        top_k:   int,
+    ) -> list[RetrievedChunk]:
         if not chunks:
             return chunks
         reranker = self._get_reranker()
-        pairs = [(query, c.content) for c in chunks]
-        scores = reranker.predict(pairs)
-        ranked = sorted(zip(scores, chunks), key=lambda x: x[0], reverse=True)
+        pairs    = [(query, c.content) for c in chunks]
+        scores   = reranker.predict(pairs)
+        ranked   = sorted(zip(scores, chunks), key=lambda x: x[0], reverse=True)
         for score, chunk in ranked[:top_k]:
             chunk.score = float(score)
         return [chunk for _, chunk in ranked[:top_k]]
@@ -84,3 +116,14 @@ class VectorRetriever:
             self._reranker = CrossEncoder(self.cfg_ret.reranker_model)
             logger.info(f"Loaded reranker: {self.cfg_ret.reranker_model}")
         return self._reranker
+
+
+# ── Backwards-compatibility alias 
+# fusion.py imports VectorRetriever — keep this alias so nothing else breaks
+# until fusion.py is updated to pass user context.
+class VectorRetriever(SupabaseVectorRetriever):
+    """
+    Alias kept for import compatibility.
+    Prefer SupabaseVectorRetriever with explicit user_id in new code.
+    """
+    pass

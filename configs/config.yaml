@@ -23,12 +23,9 @@ embedding:
   dimension: 1024          # bge-large: 1024, text-embedding-3-large: 3072
   batch_size: 64
 
-qdrant:
-  host: "localhost"
-  port: 6333
-  collection_name: "doc_intelligence"
-  distance: "Cosine"
-  on_disk_payload: true
+supabase:
+  table_name: "document_chunks"
+  match_function: "match_document_chunks"
   top_k: 10
 
 elasticsearch:

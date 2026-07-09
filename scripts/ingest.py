@@ -1,58 +1,11 @@
-"""
-scripts/ingest.py
-─────────────────────────────────────────────────────────────────────
-Full ingestion pipeline for Hybrid-RAG Document Intelligence.
-
-What this script does
-─────────────────────
-    1.  Scan data/pdfs/ (or --docs path) for supported documents
-    2.  Extract text from each file  (PDF, DOCX, TXT, HTML, CSV)
-    3.  Chunk documents into overlapping token windows
-    4.  Index chunks into:
-            • Qdrant       (dense vector search)
-            • Elasticsearch / InMemoryBM25  (keyword BM25 search)
-            • SQLite       (structured/exact lookups)
-            • KnowledgeGraph (entity-relation graph)
-
-Usage
-─────
-    # Basic — index everything in data/pdfs/
-    python scripts/ingest.py
-
-    # Custom document folder
-    python scripts/ingest.py --docs path/to/your/docs
-
-    # Skip specific indexes (useful when infra not available)
-    python scripts/ingest.py --skip-vector --skip-es
-
-    # Dry-run: only load + chunk, no indexing
-    python scripts/ingest.py --dry-run
-
-    # Reset all indexes before ingesting
-    python scripts/ingest.py --reset
-
-Flags
-─────
-    --docs PATH       directory to ingest  (default: data/pdfs)
-    --dry-run         load + chunk only, skip all indexing
-    --skip-vector     skip Qdrant embedding + indexing
-    --skip-es         skip Elasticsearch BM25 indexing
-    --skip-sql        skip SQLite metadata indexing
-    --skip-graph      skip knowledge graph build
-    --reset           wipe indexes before ingesting
-    --verbose         show chunk-level detail
-"""
 from __future__ import annotations
-
 import argparse
 import sys
 import time
 from pathlib import Path
-
 # ── Make sure project root is on sys.path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-
 
 def _banner(text: str):
     sep = "─" * 60
@@ -106,24 +59,19 @@ def step_chunk(docs, verbose: bool):
     _ok(f"{len(chunks)} chunks from {len(docs)} documents")
     return chunks
 
-
 def step_vector(chunks, reset: bool):
-    """Step 3 — Embed chunks and upsert into Qdrant."""
+    """Step 3 — Generate embeddings and upload to Supabase."""
     try:
         from vector_rag.embed import VectorIndexer
         indexer = VectorIndexer()
         if reset:
-            indexer.store.delete_collection()
-            indexer.store._ensure_collection()
-            _ok("Qdrant collection reset")
+            indexer.store.clear_all_chunks()
+            _ok("Supabase vector table cleared")
         n = indexer.index(chunks)
-        _ok(f"Qdrant: {n} chunks embedded and indexed")
-    except ImportError as e:
-        _fail(f"Missing dependency: {e}\n"
-              f"         Install: pip install qdrant-client sentence-transformers")
-    except Exception as e:
-        _fail(f"Qdrant indexing: {type(e).__name__}: {e}")
+        _ok(f"Supabase pgvector: {n} chunks indexed")
 
+    except Exception as e:
+        _fail(f"Supabase indexing: {type(e).__name__}: {e}")
 
 def step_bm25(chunks, reset: bool):
     """Step 4 — Index chunks into Elasticsearch (fallback: InMemoryBM25)."""
@@ -194,7 +142,7 @@ def step_graph(chunks, reset: bool):
 def main():
     parser = argparse.ArgumentParser(
         prog="scripts/ingest.py",
-        description="Hybrid-RAG ingestion pipeline",
+        description="Hybrid-RAG Supabase ingestion pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
@@ -203,7 +151,7 @@ def main():
     parser.add_argument("--dry-run",      action="store_true",
                         help="Load + chunk only — skip all indexing")
     parser.add_argument("--skip-vector",  action="store_true",
-                        help="Skip Qdrant vector indexing")
+                        help="Skip Supabase vector indexing")
     parser.add_argument("--skip-es",      action="store_true",
                         help="Skip BM25 / Elasticsearch indexing")
     parser.add_argument("--skip-sql",     action="store_true",
@@ -246,12 +194,12 @@ def main():
         print(f"  Chunks    : {len(chunks)}")
         return
 
-    # ── Step 3: Vector (Qdrant) 
+    # ── Step 3: Generate embeddings and upload to supabase
     if not args.skip_vector:
-        _step(step_n, TOTAL_STEPS, "Embedding + Qdrant indexing"); step_n += 1
+        _step(step_n, TOTAL_STEPS, "Embedding + Supabase indexing"); step_n += 1
         step_vector(chunks, args.reset)
     else:
-        _skip("Qdrant vector indexing (--skip-vector)")
+        _skip("Supabase vector indexing (--skip-vector)")
 
     # ── Step 4: BM25
     if not args.skip_es:
@@ -284,7 +232,6 @@ def main():
     print(f"\nThen test a query end-to-end:")
     print(f"  python -c \"from hybrid.fusion import run_query; "
           f"print(run_query('summarise the documents').answer)\"")
-
 
 if __name__ == "__main__":
     main()

@@ -1,6 +1,5 @@
 """
 vectorless_rag/bm25.py
-──────────────────────
 Two-tier BM25 retrieval:
   1. Elasticsearch (production) — full inverted index with filters
   2. rank_bm25 (dev fallback) — in-memory, no infra needed

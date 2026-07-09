@@ -22,12 +22,9 @@ class EmbeddingConfig(BaseModel):
     batch_size: int = 64
 
 
-class QdrantConfig(BaseModel):
-    host: str = "localhost"
-    port: int = 6333
-    collection_name: str = "doc_intelligence"
-    distance: str = "Cosine"
-    top_k: int = 10
+class SupabaseConfig(BaseModel):
+    url: str = "https://your-supabase-url.supabase.co"
+    api_key: str = "your-supabase-api-key"
 
 
 class ElasticsearchConfig(BaseModel):
@@ -53,7 +50,7 @@ class RetrievalConfig(BaseModel):
 
 class LLMConfig(BaseModel):
     provider: str = "groq"
-    model: str = "llama-3.3-70b-versatile"
+    model: str = "qwen/qwen3.6-27b"
     max_tokens: int = 2048
     temperature: float = 0.1
     system_prompt: str = ""
@@ -66,7 +63,7 @@ class Settings(BaseSettings):
 
     # Nested configs (loaded from yaml)
     embedding: EmbeddingConfig = EmbeddingConfig()
-    qdrant: QdrantConfig = QdrantConfig()
+    supabase: SupabaseConfig = SupabaseConfig()
     elasticsearch: ElasticsearchConfig = ElasticsearchConfig()
     classifier: ClassifierConfig = ClassifierConfig()
     retrieval: RetrievalConfig = RetrievalConfig()
@@ -85,7 +82,7 @@ def get_settings() -> Settings:
 
     settings = Settings(
         embedding=EmbeddingConfig(**raw.get("embedding", {})),
-        qdrant=QdrantConfig(**raw.get("qdrant", {})),
+        supabase=SupabaseConfig(**raw.get("supabase", {})),
         elasticsearch=ElasticsearchConfig(**raw.get("elasticsearch", {})),
         classifier=ClassifierConfig(**raw.get("classifier", {})),
         retrieval=RetrievalConfig(**raw.get("retrieval", {})),

@@ -1,7 +1,6 @@
 torch
 transformers
 sentence-transformers
-qdrant-client
 rank-bm25
 pypdf
 beautifulsoup4
@@ -34,3 +33,6 @@ groq
 google-genai
 pytest
 supabase
+# for vector database
+psycopg[binary]
+pgvector

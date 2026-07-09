@@ -1,8 +1,6 @@
 """
 vectorless_rag/sql_retriever.py
-────────────────────────────────────────────────────────────────────────────────
 SQLite-backed structured retriever for Hybrid-RAG Document Intelligence.
-
 Handles queries routed to VectorlessMethod.SQL by the classifier — typically:
   • Exact ID lookups:   "what is the total on invoice INV-2041"
   • Field comparisons:  "list contracts expiring in Q1 2025"

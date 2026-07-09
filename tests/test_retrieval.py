@@ -17,16 +17,13 @@ from vector_rag.retrieve import VectorRetriever
 def mock_settings():
     """Mock application configuration."""
     cfg = SimpleNamespace(
-        qdrant=SimpleNamespace(
-            host="localhost",
-            port=6333,
-            collection_name="test_collection",
-            top_k=5,
-        ),
-        retrieval=SimpleNamespace(
-            reranker_model="cross-encoder/ms-marco-MiniLM-L-6-v2",
-            reranker_top_k=2,
-        ),
+    supabase=SimpleNamespace(
+        top_k=5,
+    ),
+    retrieval=SimpleNamespace(
+        reranker_model="cross-encoder/ms-marco-MiniLM-L-6-v2",
+        reranker_top_k=2,
+    ),
     )
     return cfg
 
@@ -37,7 +34,7 @@ def retriever(mock_settings):
     Create VectorRetriever with mocked dependencies.
     """
     with patch("vector_rag.retrieve.get_settings", return_value=mock_settings), \
-         patch("vector_rag.retrieve.QdrantClient"), \
+         patch("vector_rag.retrieve.SupabaseClient"), \
          patch("vector_rag.retrieve.EmbeddingEngine"):
 
         r = VectorRetriever()
