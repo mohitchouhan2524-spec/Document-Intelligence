@@ -1,36 +1,53 @@
 query,label
-what is the governing law clause in this agreement,vector
-get invoice total for INV-8831,vectorless
-find all documents that mention right of first refusal,vectorless
-who countersigned the partnership deed with GlobalTech,vectorless
-how have warranty terms evolved across contract renewals,hybrid
-explain what the exclusivity clause means in this deal,vector
-show me order ORD-4410 shipping status,vectorless
-search for every file containing the phrase material breach,vectorless
-which contracts mention sub-licensing rights,vectorless
-compare vendor onboarding requirements in 2022 vs 2024,hybrid
-what does the limitation of liability section say,vector
-fetch expiry date of licence LIC-3302,vectorless
-find all records mentioning the Basel III framework,vectorless
-who owns the intellectual property created under this SOW,vectorless
-list documents about indemnification and their current status,hybrid
-what are the dispute resolution steps outlined here,vector
-retrieve status of case CS-9910,vectorless
-which agreements include the term most favoured nation,vectorless
-what obligations does the reseller have under this contract,vector
-how has the payment schedule changed over the last two years,hybrid
-describe the audit rights granted to the client,vector
-find all clauses referencing personal data processing,vectorless
-how many contracts were signed in Q3 2024,vectorless
-who is the primary contact listed in agreement AGR-7701,vectorless
-show all policies that mention data residency and their approval dates,hybrid
-what is the difference between the trial and full licence terms,vector
-get document count uploaded by department LEGAL this year,vectorless
-which files reference the EU AI Act,vectorless
-what remedies are available if the vendor breaches SLA,vector
-compare confidentiality obligations in contracts before and after 2023,hybrid
-find all documents where renewal is AUTO,vectorless
-who reviewed the risk assessment dated March 2024,vectorless
-what does the force majeure provision cover in this contract,vector
-search for every agreement containing the word novation,vectorless
-show pending invoices above 50000 and summarise their payment terms,hybrid
+what does this agreement say about intellectual property indemnification,vector
+break down the key risks identified in this due diligence memo,vector
+explain the meaning of the change of control provision,vector
+what is the underlying purpose of this joint venture agreement,vector
+describe how the profit-sharing arrangement is structured,vector
+what obligations fall on the franchisee under this contract,vector
+summarise the compliance gaps noted in this internal audit,vector
+what does the policy say about data subject access requests,vector
+explain the conditions under which this warranty is voided,vector
+what is the overall sentiment expressed in this shareholder letter,vector
+describe the vendor offboarding process outlined in this SOP,vector
+what are the key restrictions in this non-disclosure agreement,vector
+explain how royalties are calculated under this licensing deal,vector
+what does this report say about currency hedging strategy,vector
+summarize the main provisions of this employment contract,vector
+what triggers a material adverse change under this agreement,vector
+describe the steps required to invoke the arbitration clause,vector
+what is the scope of the background check policy,vector
+explain the tax indemnification provisions in this deal,vector
+what does the manual say about equipment maintenance schedules,vector
+summarise the key obligations under this data sharing agreement,vector
+what remedies does the buyer have for defective goods,vector
+describe the process for amending this master agreement,vector
+what is the purpose of the standstill clause in this deal,vector
+explain what constitutes a default event under this loan,vector
+what is the balance due on invoice INV-6650,vectorless
+show delivery date for purchase order PO-9034,vectorless
+get the current status of contract CT-1187,vectorless
+what is the value of shipment SHP-2209,vectorless
+fetch renewal date for licence LIC-4471,vectorless
+when was case CS-7702 opened,vectorless
+what is the unit price for part number PN-3390,vectorless
+how many invoices were issued in May 2024,vectorless
+list all NDAs expiring before December 2025,vectorless
+what is the number of open vendor disputes,vectorless
+find record with reference number REF-0398,vectorless
+retrieve approval status for PO-5521,vectorless
+find all documents mentioning cyber liability insurance,vectorless
+which contracts contain the phrase step-in rights,vectorless
+search for records referencing the Modern Slavery Act,vectorless
+who signed off on the vendor risk assessment for Q2,vectorless
+who is listed as the responsible officer on filing DOC-4402,vectorless
+which contracts have you flagged for renewal in the next 90 days and what changed since their last version,hybrid
+compare termination notice periods across all reseller agreements,hybrid
+show how liability caps have shifted between the 2021 and 2024 master agreements,hybrid
+find every NDA that references trade secrets and list their expiry dates,hybrid
+compare data breach notification timelines across all active vendor contracts,hybrid
+how has the indemnification scope changed since the last amendment cycle,hybrid
+list contracts mentioning most favoured customer clauses and their signing dates,hybrid
+show pending purchase orders that reference disputed pricing terms,hybrid
+compare audit clause language across contracts signed before and after the policy update,hybrid
+find all agreements referencing force majeure and rank them by contract value,hybrid

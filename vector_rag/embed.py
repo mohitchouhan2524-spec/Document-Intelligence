@@ -1,99 +1,7 @@
-"""
-vector_rag/embed.py
-Embedding engine + Supabase pgvector store for Hybrid-RAG.
-Replaces supabase with Supabase pgvector so no local vector DB is needed.
-Supabase schema required (run once in Supabase SQL editor)
-    -- Enable pgvector extension
-    create extension if not exists vector;
-    -- Documents table (per-user, max 3 PDFs tracked)
-    create table if not exists documents (
-        id          uuid primary key default gen_random_uuid(),
-        user_id     uuid not null references auth.users(id) on delete cascade,
-        doc_id      text not null,
-        filename    text,
-        filetype    text,
-        source      text,
-        created_at  timestamptz default now(),
-        unique(user_id, doc_id)
-    );
-
-    -- Chunks + embeddings table
-    create table if not exists chunks (
-        id          uuid primary key default gen_random_uuid(),
-        user_id     uuid not null references auth.users(id) on delete cascade,
-        doc_id      text not null,
-        chunk_id    text not null,
-        content     text not null,
-        chunk_index integer,
-        token_count integer,
-        embedding   vector(1024),     -- adjust dim to match your model
-        metadata    jsonb,
-        created_at  timestamptz default now(),
-        unique(user_id, chunk_id)
-    );
-
-    -- IVFFlat index for fast ANN search
-    create index if not exists chunks_embedding_idx
-        on chunks using ivfflat (embedding vector_cosine_ops)
-        with (lists = 100);
-
-    -- Row Level Security: users only see their own data
-    alter table documents enable row level security;
-    alter table chunks     enable row level security;
-
-    create policy "user_documents" on documents
-        for all using (auth.uid() = user_id);
-
-    create policy "user_chunks" on chunks
-        for all using (auth.uid() = user_id);
-
-    -- Stored function for vector similarity search
-    create or replace function match_chunks(
-        query_embedding vector,
-        match_user_id   uuid,
-        match_count     int default 5
-    )
-    returns table (
-        chunk_id    text,
-        doc_id      text,
-        content     text,
-        chunk_index integer,
-        token_count integer,
-        metadata    jsonb,
-        similarity  float
-    )
-    language sql stable
-    as $$
-        select
-            chunk_id,
-            doc_id,
-            content,
-            chunk_index,
-            token_count,
-            metadata,
-            1 - (embedding <=> query_embedding) as similarity
-        from chunks
-        where user_id = match_user_id
-        order by embedding <=> query_embedding
-        limit match_count;
-    $$;
-Public API
-    from vector_rag.embed import EmbeddingEngine, SupabaseVectorStore, VectorIndexer
-
-    # Index (called from ingest pipeline or Streamlit upload)
-    engine  = EmbeddingEngine()
-    store   = SupabaseVectorStore(user_id="uuid-...", supabase_client=sb)
-    indexer = VectorIndexer(store=store, engine=engine)
-    indexer.index(chunks)
-
-    # Retrieve (called from fusion.py)
-    results = store.similarity_search(query_embedding, top_k=5)
-"""
 from __future__ import annotations
 
 import json
 from typing import Any
-
 from loguru import logger
 from tqdm import tqdm
 
@@ -105,7 +13,6 @@ from src.config import get_settings
 
 class EmbeddingEngine:
     """Wraps local (sentence-transformers) or OpenAI embedding model."""
-
     def __init__(self):
         cfg = get_settings()
         self.provider   = cfg.embedding.provider
@@ -137,7 +44,7 @@ class EmbeddingEngine:
             for i in range(0, len(texts), self.batch_size):
                 batch = texts[i : i + self.batch_size]
                 resp  = self._client.embeddings.create(
-                    model=self._model_name, input=batch
+                    model=self._model_name,dimensions=self.dimension,input=batch
                 )
                 all_embeddings.extend([e.embedding for e in resp.data])
             return all_embeddings
@@ -155,7 +62,6 @@ class SupabaseVectorStore:
     see each other's data (enforced both in Python and via RLS policies).
 
     Per-user PDF history cap
-    ────────────────────────
     Each user may have at most MAX_PDFS distinct documents stored.
     When a new document is uploaded and the cap is reached, the oldest
     document (by created_at) and all its chunks are deleted first.

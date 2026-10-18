@@ -11,7 +11,6 @@ def _banner(text: str):
     sep = "─" * 60
     print(f"\n{sep}\n  {text}\n{sep}")
 
-
 def _step(n: int, total: int, label: str):
     print(f"\n[{n}/{total}] {label}")
 

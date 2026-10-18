@@ -1,17 +1,6 @@
-"""
-classifier/rules.py
-────────────────────
-Fast rule-based query routing. Runs before the ML classifier.
-Returns None if no rule fires (falls through to ML model).
-"""
 from __future__ import annotations
 import re
-
 from src.models import QueryIntent, RouteType, VectorlessMethod
-
-
-# ── Pattern banks 
-
 _EXACT_LOOKUP = re.compile(
     r"""
     \b(
@@ -23,7 +12,6 @@ _EXACT_LOOKUP = re.compile(
     """,
     re.IGNORECASE | re.VERBOSE,
 )
-
 _KEYWORD_SEARCH = re.compile(
     r"""
     \b(
@@ -71,7 +59,7 @@ _TEMPORAL_CHANGE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
-_ID_PATTERN = re.compile(r"\b[A-Z]{2,}-?\d{3,}\b")  # e.g. PO-4421, INV-009
+_ID_PATTERN = re.compile(r"\b[A-Z]{2,}-?\d{3,}\b")  
 
 
 def classify(query: str) -> QueryIntent | None:
@@ -80,8 +68,6 @@ def classify(query: str) -> QueryIntent | None:
     or None to signal fallback to ML classifier.
     """
     q = query.strip()
-
-    # Structural IDs in query → very likely exact lookup
     if _ID_PATTERN.search(q):
         return QueryIntent(
             route=RouteType.VECTORLESS,

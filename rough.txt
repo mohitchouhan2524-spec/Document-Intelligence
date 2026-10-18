@@ -1,0 +1,225 @@
+"""
+hybrid/fusion.py
+Central orchestrator for the Hybrid-RAG Document Intelligence pipeline.
+
+End-to-end flow
+─
+    query
+      │
+      ▼
+    QueryClassifier.classify()          ← rules.py → train.py
+      │
+      ├─ RouteType.VECTOR    ▶ VectorRetriever.retrieve_and_rerank()
+      │
+      ├─ RouteType.VECTORLESS
+      │       ├─ VectorlessMethod.BM25  ▶ BM25Retriever.search()
+      │       ├─ VectorlessMethod.SQL   ▶ SQLRetriever.search()
+      │       └─ VectorlessMethod.GRAPH ▶ KnowledgeGraphBuilder.search()
+      │
+      └─ RouteType.HYBRID   ▶ vector + vectorless in parallel
+                                          └─ RRFusion.fuse()
+      │
+      ▼
+    ContextAssembler.build()            deduplicate · trim · format
+      │
+      ▼
+    LLMGenerator.generate()             Anthropic / OpenAI
+      │
+      ▼
+    RAGResponse
+
+Public API
+
+    from hybrid.fusion import HybridPipeline
+
+    pipeline = HybridPipeline()
+    response = pipeline.query("compare SLA terms across all active vendors")
+
+    response.answer           → str
+    response.route_used       → RouteType
+    response.retrieved_chunks → list[RetrievedChunk]
+    response.latency_ms       → float
+
+Config (configs/config.yaml)
+
+    retrieval.fusion_method   : "rrf" | "linear"
+    retrieval.rrf_k           : 60
+    retrieval.reranker_top_k  : 5
+    llm.provider              : "anthropic" | "openai"
+    llm.model                 : "claude-opus-4-6"
+"""
+classifier-
+"""
+classifier
+──────────
+Query-route classifier for Hybrid-RAG Document Intelligence.
+
+Routes each incoming query to one of three retrieval paths:
+    RouteType.VECTOR      → dense semantic search (supabase pgvector)
+    RouteType.VECTORLESS  → BM25 / SQL / graph (Elasticsearch + SQLite)
+    RouteType.HYBRID      → both paths, results fused via RRF
+
+Primary API
+───────────
+    from classifier import predict_intent
+
+    intent = predict_intent("who approved the Q3 budget")
+    # intent.route            → RouteType.VECTORLESS
+    # intent.vectorless_method → VectorlessMethod.GRAPH
+    # intent.confidence       → 0.91
+
+Pipeline
+────────
+    1. rules.classify()     — fast regex pre-filter (no model load)
+    2. train.predict_intent()  — calibrated SGD + handcrafted features
+    3. fallback to HYBRID if confidence < threshold (config.yaml)
+
+Training
+────────
+    python -m classifier.train train
+    python -m classifier.train evaluate --data classifier/data/test.csv
+    python -m classifier.train predict "your query here"
+    python -m classifier.train active-learn --pool unlabelled.txt
+"""
+"""
+classifier/train.py
+────────────────────────────────────────────────────────────────────────────────
+ML classifier for Hybrid-RAG query routing in Document Intelligence.
+
+Routes each user query to one of three retrieval paths:
+    VECTOR      → dense semantic search via supabase pgvector
+    VECTORLESS  → BM25 / SQL / graph via Elasticsearch + SQLite
+    HYBRID      → both paths fused via RRF
+
+Architecture
+────────────
+    ┌──────────────┐    ┌─────────────────────────┐    ┌──────────────┐
+    │  Raw query   │───▶│  Feature engineering     │───▶│  Classifier  │
+    └──────────────┘    │  (TF-IDF + handcrafted)  │    │  (SGD / LR)  │
+                        └─────────────────────────┘    └──────┬───────┘
+                                                               │
+                        ┌──────────────────────────────────────┘
+                        ▼
+                ┌───────────────┐
+                │  QueryIntent  │  → route + vectorless_method + confidence
+                └───────────────┘
+
+Training pipeline
+─────────────────
+1.  Build / load labelled dataset  (synthetic + user-supplied)
+2.  Feature engineering            (TF-IDF unigrams+bigrams + 12 handcrafted)
+3.  Train SGDClassifier            (log-loss → calibrated probabilities)
+4.  Calibrate probabilities        (CalibratedClassifierCV, isotonic)
+5.  Evaluate                       (macro-F1, per-class report, confusion matrix)
+6.  Persist                        (pickle: model + vectoriser + label encoder)
+7.  CLI                            (train / evaluate / predict / active-learn)
+
+Usage
+─────
+    # Train from scratch (uses built-in synthetic data)
+    python -m classifier.train train
+
+    # Add your own labelled queries (CSV: query,label)
+    python -m classifier.train train --data path/to/queries.csv
+
+    # Evaluate saved model
+    python -m classifier.train evaluate --data path/to/test.csv
+
+    # Predict a single query
+    python -m classifier.train predict "summarise the risk factors in Q3 report"
+
+    # Active-learning loop (label uncertain predictions interactively)
+    python -m classifier.train active-learn --pool path/to/unlabelled.txt
+"""
+vector_rag-->embeddings
+"""
+vector_rag/embed.py
+Embedding engine + Supabase pgvector store for Hybrid-RAG.
+Replaces supabase with Supabase pgvector so no local vector DB is needed.
+Supabase schema required (run once in Supabase SQL editor)
+    -- Enable pgvector extension
+    create extension if not exists vector;
+    -- Documents table (per-user, max 3 PDFs tracked)
+    create table if not exists documents (
+        id          uuid primary key default gen_random_uuid(),
+        user_id     uuid not null references auth.users(id) on delete cascade,
+        doc_id      text not null,
+        filename    text,
+        filetype    text,
+        source      text,
+        created_at  timestamptz default now(),
+        unique(user_id, doc_id)
+    );
+
+    -- Chunks + embeddings table
+    create table if not exists chunks (
+        id          uuid primary key default gen_random_uuid(),
+        user_id     uuid not null references auth.users(id) on delete cascade,
+        doc_id      text not null,
+        chunk_id    text not null,
+        content     text not null,
+        chunk_index integer,
+        token_count integer,
+        embedding   vector(1024),     -- adjust dim to match your model
+        metadata    jsonb,
+        created_at  timestamptz default now(),
+        unique(user_id, chunk_id)
+    );
+
+    -- IVFFlat index for fast ANN search
+    create index if not exists chunks_embedding_idx
+        on chunks using ivfflat (embedding vector_cosine_ops)
+        with (lists = 100);
+
+    -- Row Level Security: users only see their own data
+    alter table documents enable row level security;
+    alter table chunks     enable row level security;
+
+    create policy "user_documents" on documents
+        for all using (auth.uid() = user_id);
+
+    create policy "user_chunks" on chunks
+        for all using (auth.uid() = user_id);
+
+    -- Stored function for vector similarity search
+    create or replace function match_chunks(
+        query_embedding vector,
+        match_user_id   uuid,
+        match_count     int default 5
+    )
+    returns table (
+        chunk_id    text,
+        doc_id      text,
+        content     text,
+        chunk_index integer,
+        token_count integer,
+        metadata    jsonb,
+        similarity  float
+    )
+    language sql stable
+    as $$
+        select
+            chunk_id,
+            doc_id,
+            content,
+            chunk_index,
+            token_count,
+            metadata,
+            1 - (embedding <=> query_embedding) as similarity
+        from chunks
+        where user_id = match_user_id
+        order by embedding <=> query_embedding
+        limit match_count;
+    $$;
+Public API
+    from vector_rag.embed import EmbeddingEngine, SupabaseVectorStore, VectorIndexer
+
+    # Index (called from ingest pipeline or Streamlit upload)
+    engine  = EmbeddingEngine()
+    store   = SupabaseVectorStore(user_id="uuid-...", supabase_client=sb)
+    indexer = VectorIndexer(store=store, engine=engine)
+    indexer.index(chunks)
+
+    # Retrieve (called from fusion.py)
+    results = store.similarity_search(query_embedding, top_k=5)
+"""

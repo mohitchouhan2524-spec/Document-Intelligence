@@ -299,13 +299,10 @@ def _auth_gate() -> bool:
 
         # ── Login tab
         with tab_login:
-            email    = st.text_input("Email",    key="login_email",
-                                     placeholder="you@example.com")
-            password = st.text_input("Password", key="login_pass",
-                                     type="password", placeholder="••••••••")
+            email    = st.text_input("Email",    key="login_email",placeholder="you@example.com")
+            password = st.text_input("Password", key="login_pass",type="password", placeholder="••••••••")
             st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("Log In", use_container_width=True, type="primary",
-                         key="btn_login"):
+            if st.button("Log In", use_container_width=True, type="primary",key="btn_login"):
                 if not email or not password:
                     st.warning("Please enter both email and password.")
                 else:
@@ -317,19 +314,13 @@ def _auth_gate() -> bool:
                         st.rerun()
                     except Exception as e:
                         st.error(f"Login failed: {e}")
-
         # ── Sign-up tab 
         with tab_signup:
-            new_email    = st.text_input("Email",key="signup_email",
-                                         placeholder="you@example.com")
-            new_password = st.text_input("Password",key="signup_pass",
-                                         type="password",
-                                         placeholder="Min 6 characters")
-            new_confirm  = st.text_input("Confirm password",key="signup_confirm",
-                                         type="password", placeholder="••••••••")
+            new_email = st.text_input("Email",key="signup_email",placeholder="you@example.com")
+            new_password = st.text_input("Password",key="signup_pass",type="password",placeholder="Min 6 characters")
+            new_confirm  = st.text_input("Confirm password",key="signup_confirm",type="password", placeholder="••••••••")
             st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("Create Account", use_container_width=True,
-                         type="primary", key="btn_signup"):
+            if st.button("Create Account", use_container_width=True,type="primary", key="btn_signup"):
                 if not new_email or not new_password:
                     st.warning("Please fill in all fields.")
                 elif new_password != new_confirm:
@@ -338,18 +329,11 @@ def _auth_gate() -> bool:
                     st.error("Password must be at least 6 characters.")
                 else:
                     try:
-                        sb.auth.sign_up(
-                            {"email": new_email, "password": new_password}
-                        )
-                        st.success(
-                            "✅ Account created! Check your email to verify "
-                            "your address, then log in."
-                        )
+                        sb.auth.sign_up({"email": new_email, "password": new_password})
+                        st.success("✅ Account created! Check your email to verify ""your address, then log in.")
                     except Exception as e:
                         st.error(f"Sign-up failed: {e}")
-
     return False   # not authenticated yet — stop rendering main app
-
 
 # ── Pipeline loader
 
@@ -453,16 +437,12 @@ def _sidebar():
         st.markdown('<p class="section-eyebrow">Pipeline status</p>', unsafe_allow_html=True)
         pipeline, err = _get_pipeline()
         if pipeline:
-            st.markdown('<span class="status-dot dot-ok"></span>Pipeline ready',
-                        unsafe_allow_html=True)
+            st.markdown('<span class="status-dot dot-ok"></span>Pipeline ready',unsafe_allow_html=True)
         else:
-            st.markdown(f'<span class="status-dot dot-err"></span>Pipeline offline',
-                        unsafe_allow_html=True)
+            st.markdown(f'<span class="status-dot dot-err"></span>Pipeline offline',unsafe_allow_html=True)
             with st.expander("Error details"):
                 st.code(err or "Unknown error", language="text")
-
         st.divider()
-
         # ── Quick settings
         st.markdown('<p class="section-eyebrow">Settings</p>', unsafe_allow_html=True)
 
@@ -471,8 +451,7 @@ def _sidebar():
             ["rrf", "linear"],
             index=["rrf","linear"].index(st.session_state.settings["fusion_method"]),
         )
-        top_k = st.slider("Retrieved chunks", 1, 10,
-                          st.session_state.settings["top_k"])
+        top_k = st.slider("Retrieved chunks", 1, 10,st.session_state.settings["top_k"])
         generate = st.toggle("Generate answer (LLM)",
                              st.session_state.settings["generate"])
         show_chunks = st.toggle("Show source chunks",
@@ -1054,11 +1033,7 @@ def main():
 
     _sidebar()
 
-    st.markdown(
-        "## 🗂️ Document Intelligence",
-        help="Hybrid-RAG: routes each query to semantic search, structured lookup, or both.",
-    )
-
+    st.markdown("## 🗂️ Document Intelligence",help="Hybrid-RAG: routes each query to semantic search, structured lookup, or both.",)
     tab_chat, tab_ingest, tab_eval, tab_settings = st.tabs([
         "💬 Chat",
         "📂 Ingest",

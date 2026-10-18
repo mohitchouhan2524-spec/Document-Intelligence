@@ -1,53 +1,3 @@
-"""
-classifier/train.py
-────────────────────────────────────────────────────────────────────────────────
-ML classifier for Hybrid-RAG query routing in Document Intelligence.
-
-Routes each user query to one of three retrieval paths:
-    VECTOR      → dense semantic search via supabase pgvector
-    VECTORLESS  → BM25 / SQL / graph via Elasticsearch + SQLite
-    HYBRID      → both paths fused via RRF
-
-Architecture
-────────────
-    ┌──────────────┐    ┌─────────────────────────┐    ┌──────────────┐
-    │  Raw query   │───▶│  Feature engineering     │───▶│  Classifier  │
-    └──────────────┘    │  (TF-IDF + handcrafted)  │    │  (SGD / LR)  │
-                        └─────────────────────────┘    └──────┬───────┘
-                                                               │
-                        ┌──────────────────────────────────────┘
-                        ▼
-                ┌───────────────┐
-                │  QueryIntent  │  → route + vectorless_method + confidence
-                └───────────────┘
-
-Training pipeline
-─────────────────
-1.  Build / load labelled dataset  (synthetic + user-supplied)
-2.  Feature engineering            (TF-IDF unigrams+bigrams + 12 handcrafted)
-3.  Train SGDClassifier            (log-loss → calibrated probabilities)
-4.  Calibrate probabilities        (CalibratedClassifierCV, isotonic)
-5.  Evaluate                       (macro-F1, per-class report, confusion matrix)
-6.  Persist                        (pickle: model + vectoriser + label encoder)
-7.  CLI                            (train / evaluate / predict / active-learn)
-
-Usage
-─────
-    # Train from scratch (uses built-in synthetic data)
-    python -m classifier.train train
-
-    # Add your own labelled queries (CSV: query,label)
-    python -m classifier.train train --data path/to/queries.csv
-
-    # Evaluate saved model
-    python -m classifier.train evaluate --data path/to/test.csv
-
-    # Predict a single query
-    python -m classifier.train predict "summarise the risk factors in Q3 report"
-
-    # Active-learning loop (label uncertain predictions interactively)
-    python -m classifier.train active-learn --pool path/to/unlabelled.txt
-"""
 from __future__ import annotations
 import argparse
 import csv
@@ -85,13 +35,13 @@ from classifier.rules import classify as rules_classify
 LABELS = [RouteType.VECTOR, RouteType.VECTORLESS, RouteType.HYBRID]
 LABEL_NAMES = [l.value for l in LABELS]
 
-# ── Synthetic training data 
+#  Synthetic training data 
 # Format: (query_text, route_label, vectorless_method_or_None)
 # ~40 examples per class — enough for a solid baseline; grows via active learning.
 
 _SYNTHETIC: list[tuple[str, str, str | None]] = [
 
-    # ── VECTOR (semantic / analytical) 
+    #VECTOR (semantic / analytical) 
     ("summarise the key findings in the annual report",          "vector", None),
     ("what are the main risk factors described in this filing",  "vector", None),
     ("explain the product liability clause in plain English",    "vector", None),
@@ -133,7 +83,7 @@ _SYNTHETIC: list[tuple[str, str, str | None]] = [
     ("what are the notice requirements for termination",       "vector", None),
     ("how are renewal terms structured in this subscription",  "vector", None),
 
-    # ── VECTORLESS → SQL (exact / structured lookup) ──────────────────────────
+    # VECTORLESS → SQL (exact / structured lookup)
     ("what is the total amount on invoice INV-2041",            "vectorless", "sql"),
     ("show me PO-8812 delivery date",                           "vectorless", "sql"),
     ("get the status of contract CT-0034",                      "vectorless", "sql"),
@@ -175,7 +125,7 @@ _SYNTHETIC: list[tuple[str, str, str | None]] = [
     ("what is the maximum contract value in our system",        "vectorless", "sql"),
     ("how many unique vendors are in the database",             "vectorless", "sql"),
 
-    # ── VECTORLESS → BM25 (keyword / phrase search) ───────────────────────────
+    # VECTORLESS → BM25 (keyword / phrase search)
     ("find all documents mentioning force majeure",             "vectorless", "bm25"),
     ("search for contracts containing the word indemnification","vectorless", "bm25"),
     ("find all files that mention GDPR",                        "vectorless", "bm25"),
@@ -197,7 +147,7 @@ _SYNTHETIC: list[tuple[str, str, str | None]] = [
     ("search for documents with the clause entire agreement",   "vectorless", "bm25"),
     ("find all policies that mention acceptable use",           "vectorless", "bm25"),
 
-    # ── VECTORLESS → GRAPH (entity / relationship queries) ────────────────────
+    # VECTORLESS → GRAPH (entity / relationship queries)
     ("who approved the Q3 budget document",                     "vectorless", "graph"),
     ("who authored the data governance policy",                 "vectorless", "graph"),
     ("who signed the vendor agreement with TechCorp",           "vectorless", "graph"),
@@ -214,7 +164,7 @@ _SYNTHETIC: list[tuple[str, str, str | None]] = [
     ("who wrote the technical specification for module B",      "vectorless", "graph"),
     ("which teams are mentioned in the escalation policy",      "vectorless", "graph"),
 
-    # ── HYBRID (needs both semantic + structured) ─────────────────────────────
+    # ── HYBRID (needs both semantic + structured)
     ("how has our refund policy changed since 2022",            "hybrid", None),
     ("compare the SLA terms in the 2021 vs 2024 contracts",    "hybrid", None),
     ("show me how vendor pricing has evolved over the last 3 years","hybrid",None),
@@ -309,7 +259,7 @@ def load_artifacts(path: str | Path | None = None) -> ClassifierArtifacts:
         return _SafeUnpickler(f).load()
 
 
-# ── HybridClassifier (module-level so pickle can serialise it) ────────────────
+# ── HybridClassifier (module-level so pickle can serialise it) 
 # Must live here — NOT inside train() — because pickle resolves classes by
 # their fully-qualified module path at load time. A class defined inside a
 # function becomes 'train.<locals>.HybridClassifier', which is unreachable
@@ -349,7 +299,7 @@ class HybridClassifier(BaseEstimator):
         return self.clf.predict_proba(X_all)
 
 
-# ── Training ──────────────────────────────────────────────────────────────────
+# ── Training 
 
 def train(extra_data_path: str | None = None) -> ClassifierArtifacts:
     """
@@ -658,13 +608,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
     # train
     p_train = sub.add_parser("train", help="Train classifier (synthetic + optional CSV)")
-    p_train.add_argument("--data", type=str, default=None,
-                         help="Path to extra labelled CSV (query,label[,method])")
+    p_train.add_argument("--data", type=str, default=None,help="Path to extra labelled CSV (query,label[,method])")
 
     # evaluate
     p_eval = sub.add_parser("evaluate", help="Evaluate saved model on test CSV")
-    p_eval.add_argument("--data", type=str, required=True,
-                        help="Test CSV path (query,label[,method])")
+    p_eval.add_argument("--data", type=str, required=True,help="Test CSV path (query,label[,method])")
     p_eval.add_argument("--model", type=str, default=None, help="Model pickle path")
 
     # predict
