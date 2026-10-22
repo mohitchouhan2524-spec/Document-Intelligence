@@ -8,7 +8,36 @@ from tqdm import tqdm
 from src.models import Chunk, RetrievedChunk, RouteType
 from src.config import get_settings
 
+import threading
 
+_model_cache: dict = {}
+_cross_encoder_cache: dict = {}
+_cache_lock = threading.Lock()
+inference_lock = threading.Lock()
+
+
+def get_local_model(name: str):
+    with _cache_lock:
+        model = _model_cache.get(name)
+        if model is None:
+            from sentence_transformers import SentenceTransformer
+
+            model = SentenceTransformer(name)
+            _model_cache[name] = model
+            logger.info(f"Loaded local embedding model: {name}")
+        return model
+
+
+def get_cross_encoder(name: str):
+    with _cache_lock:
+        model = _cross_encoder_cache.get(name)
+        if model is None:
+            from sentence_transformers import CrossEncoder
+
+            model = CrossEncoder(name)
+            _cross_encoder_cache[name] = model
+            logger.info(f"Loaded reranker: {name}")
+        return model
 # ── Embedding engine (unchanged — local or OpenAI)
 
 class EmbeddingEngine:
@@ -32,12 +61,13 @@ class EmbeddingEngine:
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
         if self.provider == "local":
-            vecs = self._model.encode(
-                texts,
-                batch_size=self.batch_size,
-                show_progress_bar=False,
-                normalize_embeddings=True,
-            )
+            with inference_lock:
+                vecs = self._model.encode(
+                    texts,
+                    batch_size=self.batch_size,
+                    show_progress_bar=False,
+                    normalize_embeddings=True,
+                )
             return vecs.tolist()
         else:
             all_embeddings = []

@@ -22,7 +22,12 @@ from loguru import logger
 
 from src.config import get_settings
 from src.models import RetrievedChunk, RouteType
-from vector_rag.embed import EmbeddingEngine, SupabaseVectorStore
+from vector_rag.embed import (
+    EmbeddingEngine,
+    SupabaseVectorStore,
+    get_cross_encoder,
+    inference_lock,
+    )
 
 
 class SupabaseVectorRetriever:
@@ -46,7 +51,7 @@ class SupabaseVectorRetriever:
         )
         self._reranker  = None   # lazy-loaded
 
-    # ── Public API (matches the contract fusion.py expects) ───────────────
+    # ── Public API (matches the contract fusion.py expects)
 
     def retrieve(
         self,
@@ -104,19 +109,15 @@ class SupabaseVectorRetriever:
             return chunks
         reranker = self._get_reranker()
         pairs    = [(query, c.content) for c in chunks]
-        scores   = reranker.predict(pairs)
+        with inference_lock:
+            scores = reranker.predict(pairs)
         ranked   = sorted(zip(scores, chunks), key=lambda x: x[0], reverse=True)
         for score, chunk in ranked[:top_k]:
             chunk.score = float(score)
         return [chunk for _, chunk in ranked[:top_k]]
 
     def _get_reranker(self):
-        if self._reranker is None:
-            from sentence_transformers import CrossEncoder
-            self._reranker = CrossEncoder(self.cfg_ret.reranker_model)
-            logger.info(f"Loaded reranker: {self.cfg_ret.reranker_model}")
-        return self._reranker
-
+        return get_cross_encoder(self.cfg_ret.reranker_model)
 
 # ── Backwards-compatibility alias 
 # fusion.py imports VectorRetriever — keep this alias so nothing else breaks

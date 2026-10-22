@@ -50,7 +50,7 @@ class RetrievalConfig(BaseModel):
 
 class LLMConfig(BaseModel):
     provider: str = "groq"
-    model: str = "qwen/qwen3.6-27b"
+    model: str = "openai/gpt-oss-120b"
     max_tokens: int = 2048
     temperature: float = 0.1
     system_prompt: str = ""
