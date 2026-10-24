@@ -1,3 +1,11 @@
+---
+title: Hybrid-RAG Document Intelligence
+emoji: 🗂️
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_port: 7860
+---
 Document Intelligence Project:An end-to-end Hybrid-RAG pipeline featuring Reciprocal Rank Fusion, Streamlit UI, and multi-provider LLM routing.
 1. Project Overview:This Document Intelligence assistant is designed to query complex documents accurately without hallucinating. Built with a robust Hybrid Retrieval-Augmented Generation (RAG) architecture, the application dynamically routes queries between semantic search and keyword search depending on the user's intent. It handles document ingestion, parallel retrieval, cross-encoder reranking, and generation through a clean Streamlit interface.
 2. Key Features:-

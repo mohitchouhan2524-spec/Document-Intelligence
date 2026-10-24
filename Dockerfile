@@ -18,12 +18,16 @@ RUN grep -Ev '^(torch|torchvision)==' requirements.txt > requirements.docker.txt
 
 COPY . .
 
-RUN useradd --create-home app \
+RUN sed -i 's/\r$//' start.sh
+
+RUN python -c "from huggingface_hub import snapshot_download; from src.config import get_settings; c = get_settings(); p = ['*.json','*.safetensors','*.txt','*.model','*.jinja']; snapshot_download(c.embedding.local_model, allow_patterns=p); snapshot_download(c.retrieval.reranker_model, allow_patterns=p)" || true
+
+RUN useradd --create-home --uid 1000 app \
     && mkdir -p /app/.cache/huggingface /app/evaluation/reports \
     && chown -R app:app /app
 
 USER app
 
-EXPOSE 8000 8501
+EXPOSE 7860
 
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["bash", "start.sh"]
