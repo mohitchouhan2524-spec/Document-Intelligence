@@ -45,7 +45,7 @@ classifier:
   fallback: "hybrid"       # route when confidence < threshold
 
 retrieval:
-  reranker_model: "BAAI/bge-reranker-large"
+  reranker_model: "BAAI/bge-reranker-base"
   reranker_top_k: 5        # final docs after reranking
   fusion_method: "rrf"     # "rrf" | "linear" | "learned"
   rrf_k: 60

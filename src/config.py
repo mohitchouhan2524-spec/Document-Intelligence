@@ -42,7 +42,7 @@ class ClassifierConfig(BaseModel):
 
 
 class RetrievalConfig(BaseModel):
-    reranker_model: str = "BAAI/bge-reranker-large"
+    reranker_model: str = "BAAI/bge-reranker-base"
     reranker_top_k: int = 5
     fusion_method: str = "rrf"
     rrf_k: int = 60
